@@ -667,21 +667,11 @@ public abstract partial class SharedPhysicsSystem
             MaxDegreeOfParallelism = _parallel.ParallelProcessCount,
         };
 
-        while (iBegin < actualIslands.Length)
-        {
-            ref var island = ref actualIslands[iBegin];
-
-            if (!InternalParallel(island))
-                break;
-
-            SolveIsland(ref island, in data, options, prediction, solvedPositions, solvedAngles, linearVelocities, angularVelocities, sleepStatus);
-            iBegin++;
-        }
-
-        Parallel.For(iBegin, actualIslands.Length, options, i =>
+        Parallel.For(0, actualIslands.Length, options, i =>
         {
             ref var island = ref actualIslands[i];
-            SolveIsland(ref island, in data, null, prediction, solvedPositions, solvedAngles, linearVelocities, angularVelocities, sleepStatus);
+            var islandOptions = InternalParallel(island) ? options : null;
+            SolveIsland(ref island, in data, islandOptions, prediction, solvedPositions, solvedAngles, linearVelocities, angularVelocities, sleepStatus);
         });
 
         // Update data sequentially
