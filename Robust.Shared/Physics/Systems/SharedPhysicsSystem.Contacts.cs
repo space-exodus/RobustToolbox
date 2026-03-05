@@ -404,28 +404,46 @@ public abstract partial class SharedPhysicsSystem
         // Can be changed while enumerating
         // TODO: check for null instead?
         // Work out which contacts are still valid before we decide to update manifolds.
-        var node = _activeContacts.First;
-
-        while (node != null)
+        // We only iterate through awake bodies since any contact that matters must be attached to at least one awake body.
+        foreach (var ent in AwakeBodies)
         {
-            var contact = node.Value;
-            node = node.Next;
+            var entUid = ent.Owner;
+            var entBody = ent.Comp1;
+            var node = entBody.Contacts.First;
 
-            // It's possible the contact was destroyed by content in which case we just skip it.
-            if (!contact.Enabled)
-                continue;
+            while (node != null)
+            {
+                var contact = node.Value;
+                node = node.Next;
 
-            // No longer pre-init and can be used in the solver.
-            contact.Flags &= ~ContactFlags.PreInit;
-            Fixture fixtureA = contact.FixtureA!;
-            Fixture fixtureB = contact.FixtureB!;
-            int indexA = contact.ChildIndexA;
-            int indexB = contact.ChildIndexB;
+                var bodyA = contact.BodyA!;
+                var bodyB = contact.BodyB!;
 
-            var bodyA = contact.BodyA!;
-            var bodyB = contact.BodyB!;
-            var uidA = contact.EntityA;
-            var uidB = contact.EntityB;
+                bool activeA = bodyA.Awake && bodyA.BodyType != BodyType.Static;
+                bool activeB = bodyB.Awake && bodyB.BodyType != BodyType.Static;
+
+                // Deduplicate evaluation.
+                // If both bodies are awake and active, we only evaluate the contact when evaluating EntityA.
+                // If we are currently evaluating EntityB, we skip it because we already did or will evaluate it via EntityA.
+                if (activeA && activeB)
+                {
+                    if (entUid != contact.EntityA)
+                        continue;
+                }
+
+                // It's possible the contact was destroyed by content in which case we just skip it.
+                if (!contact.Enabled)
+                    continue;
+
+                // No longer pre-init and can be used in the solver.
+                contact.Flags &= ~ContactFlags.PreInit;
+                Fixture fixtureA = contact.FixtureA!;
+                Fixture fixtureB = contact.FixtureB!;
+                int indexA = contact.ChildIndexA;
+                int indexB = contact.ChildIndexB;
+
+                var uidA = contact.EntityA;
+                var uidB = contact.EntityB;
 
             // Do not try to collide disabled bodies
             if (!bodyA.CanCollide || !bodyB.CanCollide)
@@ -458,9 +476,6 @@ public abstract partial class SharedPhysicsSystem
                 // Clear the filtering flag.
                 contact.Flags &= ~ContactFlags.Filter;
             }
-
-            bool activeA = bodyA.Awake && bodyA.BodyType != BodyType.Static;
-            bool activeB = bodyB.Awake && bodyB.BodyType != BodyType.Static;
 
             // At least one body must be awake and it must be dynamic or kinematic.
             if (activeA == false && activeB == false)
@@ -554,6 +569,7 @@ public abstract partial class SharedPhysicsSystem
             }
 
             contacts[index++] = contact;
+            }
         }
 
         var status = ArrayPool<ContactStatus>.Shared.Rent(index);
