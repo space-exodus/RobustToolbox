@@ -670,8 +670,7 @@ public abstract partial class SharedPhysicsSystem
         Parallel.For(0, actualIslands.Length, options, i =>
         {
             ref var island = ref actualIslands[i];
-            var islandOptions = InternalParallel(island) ? options : null;
-            SolveIsland(ref island, in data, islandOptions, prediction, solvedPositions, solvedAngles, linearVelocities, angularVelocities, sleepStatus);
+            SolveIsland(ref island, in data, options, prediction, solvedPositions, solvedAngles, linearVelocities, angularVelocities, sleepStatus);
         });
 
         // Update data sequentially
